@@ -1,0 +1,63 @@
+.signin-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    max-width: 400px;
+    margin: 0 auto;
+    background-color: #f7f7f7;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+    color: #333;
+    text-align: center;
+  }
+  
+  .input-group {
+    width: 100%;
+    margin-bottom: 15px;
+  }
+  
+  label {
+    font-size: 1rem;
+    margin-bottom: 5px;
+    display: block;
+    color: #666;
+  }
+  
+  input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 1rem;
+  }
+  
+  .connect-btn,
+  .submit-btn {
+    background-color: #0077cc;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 20px;
+    width: 100%;
+  }
+  
+  .connect-btn:hover,
+  .submit-btn:hover {
+    background-color: #005fa3;
+  }
+  
+  p {
+    font-size: 1rem;
+    color: #555;
+  }
+  

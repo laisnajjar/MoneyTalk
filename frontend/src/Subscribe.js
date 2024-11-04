@@ -123,7 +123,7 @@ const Subscribe = () => {
             mb: 2,
           }}
         >
-          Eagle Eye Spending
+          MoneyTalk
         </Typography>
 
         {/* Cool Tagline/Description */}
@@ -138,8 +138,8 @@ const Subscribe = () => {
             mb: 2,
           }}
         >
-          Your smart personal finance assistant. Connect your bank, track your
-          spending, and gain control over your finances.
+          Your accessible-for-all personal finance assistant. Connect your bank,
+          track your spending, and gain control over your finances.
         </Typography>
         <Typography
           variant="subtitle1"

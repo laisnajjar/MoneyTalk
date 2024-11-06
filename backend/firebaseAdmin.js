@@ -1,10 +1,11 @@
 // firebaseAdmin.js
+require("dotenv").config();
 const admin = require("firebase-admin");
-const serviceAccount = require("./moneytalk-271f5-firebase-adminsdk-nqn2g-cfbd7c799d.json");
+const serviceAccount = require(`./${process.env.FIREBASE_KEY}.json`);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://moneytalk-271f5.firebaseio.com"
+  databaseURL: `https://${process.env.FIREBASE_ID}.firebaseio.com`,
 });
 
 const db = admin.firestore();

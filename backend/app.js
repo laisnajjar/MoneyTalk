@@ -8,6 +8,7 @@ const cors = require("cors"); //allows a server to indicate any origins (domain,
 const moment = require("moment"); //parse, validate, manipulate, and display dates and times in JavaScript.
 const util = require("util");
 require("dotenv").config(); // dotenv loads variables from .env
+const { admin, db } = require("./firebaseAdmin");
 // Initialize the Express server
 const app = express();
 // const userRoutes = require("./routes/user");
@@ -140,6 +141,85 @@ app.post("/api/transactions", function (request, response, next) {
     })
     .catch(next);
 });
+// Route to login a phone number
+app.post("/api/login", async (req, res) => {
+  const { phoneNumber, verificationCode } = req.body;
+
+  try {
+    // TODO Verify the verification code
+    // const decodedToken = await admin.auth().verifyIdToken(verificationCode);
+
+    // Check if user already exists
+    const userDoc = db.collection("users").doc(phoneNumber);
+    const userSnapshot = await userDoc.get();
+
+    if (!userSnapshot.exists) {
+      // If user doesn't exist, create a new record
+      await userDoc.set({
+        phoneNumber,
+        notificationPreference: "daily", // default preference
+      });
+    }
+
+    res.status(200).json({ message: "User logged in successfully." });
+  } catch (error) {
+    console.error("Error during login:", error);
+    res
+      .status(400)
+      .json({ message: "Login failed. Invalid verification code." });
+  }
+});
+// Unsubscribe endpoint to delete user data
+app.post("/api/unsubscribe", async (req, res) => {
+  const { phoneNumber } = req.body;
+
+  try {
+    const userDoc = db.collection("users").doc(phoneNumber);
+
+    // Check if the user exists before attempting to delete
+    const userSnapshot = await userDoc.get();
+    if (!userSnapshot.exists) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Delete the user's document from Firestore
+    await userDoc.delete();
+
+    res.status(200).json({ message: "User unsubscribed successfully." });
+  } catch (error) {
+    console.error("Error during unsubscribe:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to unsubscribe. Please try again later." });
+  }
+});
+// Update notification preferences endpoint
+app.post("/api/updateNotifications", async (req, res) => {
+  const { phoneNumber, notificationPreference } = req.body;
+
+  try {
+    const userDoc = db.collection("users").doc(phoneNumber);
+
+    // Check if user exists before updating
+    const userSnapshot = await userDoc.get();
+    if (!userSnapshot.exists) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Update the user's notification preference
+    await userDoc.update({ notificationPreference });
+
+    res
+      .status(200)
+      .json({ message: "Notification preference updated successfully." });
+  } catch (error) {
+    console.error("Error updating notification preferences:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to update notification preferences." });
+  }
+});
+
 //TODO Balance! maybe investments!
 // Route to unsubscribe a phone number from notifications
 // app.post("/api/unsubscribe", async (req, res) => {

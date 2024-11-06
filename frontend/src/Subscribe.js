@@ -8,6 +8,10 @@ import {
   TextField,
   Typography,
   CircularProgress,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
 } from "@mui/material";
 import SecurityIcon from "@mui/icons-material/Security";
 
@@ -15,6 +19,8 @@ const Subscribe = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [linkToken, setLinkToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [notificationPreference, setNotificationPreference] = useState("");
 
   // Fetch the Plaid Link token from the backend when the component mounts
   useEffect(() => {
@@ -27,11 +33,11 @@ const Subscribe = () => {
           }
         );
         const data = await response.json();
-        setLinkToken(data.link_token); // Set the Plaid link token in state
-        setLoading(false); // Stop the loading indicator
+        setLinkToken(data.link_token);
+        setLoading(false);
       } catch (error) {
         console.error("Error fetching Plaid link token:", error);
-        setLoading(false); // Stop the loading indicator even on error
+        setLoading(false);
       }
     };
 
@@ -42,8 +48,6 @@ const Subscribe = () => {
   const handlePlaidSuccess = async (publicToken, metadata) => {
     try {
       console.log("Public Token:", publicToken);
-
-      // Send public token to the backend to exchange it for access token
       const response = await fetch(
         "http://localhost:5000/api/set_access_token",
         {
@@ -55,24 +59,31 @@ const Subscribe = () => {
         }
       );
       console.log("Access Token Response:", response);
-      // After exchanging the token, fetch transactions for yesterday
-      const transactionResponse = await fetch(
-        "http://localhost:5000/api/transactions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          // body: JSON.stringify({
-          //   phoneNumber, // Pass the phone number
-          // }),
-        }
-      );
-
-      const transactionData = await transactionResponse.json();
-      console.log("Transaction SMS Sent:", transactionData);
     } catch (error) {
       console.error("Error exchanging public token:", error);
+    }
+  };
+
+  // Handle login
+  const handleLogin = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phoneNumber }),
+      });
+      const result = await response.json();
+      if (result.message === "User logged in successfully.") {
+        setLoggedIn(true);
+        alert("Logged in successfully.");
+      } else {
+        alert("Login failed. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error during login:", error);
+      alert("Failed to login. Please try again.");
     }
   };
 
@@ -84,20 +95,52 @@ const Subscribe = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ phoneNumber }), // Send the phone number to unsubscribe
+        body: JSON.stringify({ phoneNumber }),
       });
       const result = await response.json();
-      console.log("Unsubscribe Response:", result);
-      alert(`Unsubscribed successfully for phone number: ${phoneNumber}`);
+      if (result.message === "User unsubscribed successfully.") {
+        setLoggedIn(false);
+        setPhoneNumber("");
+        alert(`Unsubscribed successfully for phone number: ${phoneNumber}`);
+      } else {
+        alert("Failed to unsubscribe. Please try again.");
+      }
     } catch (error) {
       console.error("Error unsubscribing:", error);
       alert("Failed to unsubscribe. Please try again.");
     }
   };
 
-  // Handle form submission
-  const handleSubmit = () => {
-    console.log("Phone Number:", phoneNumber);
+  // Handle notification preference change
+  const handlePreferenceChange = async (event) => {
+    const newPreference = event.target.value;
+    setNotificationPreference(newPreference);
+
+    // Update preference in backend
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/updateNotifications",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            phoneNumber,
+            notificationPreference: newPreference,
+          }),
+        }
+      );
+      const result = await response.json();
+      if (result.message === "Notification preference updated successfully.") {
+        alert("Notification preference updated successfully.");
+      } else {
+        alert("Failed to update notification preferences.");
+      }
+    } catch (error) {
+      console.error("Error updating notification preferences:", error);
+      alert("Failed to update notification preferences. Please try again.");
+    }
   };
 
   return (
@@ -111,7 +154,6 @@ const Subscribe = () => {
           alignItems: "center",
         }}
       >
-        {/* Enhanced SpendWise Title */}
         <Typography
           variant="h3"
           component="h1"
@@ -126,7 +168,6 @@ const Subscribe = () => {
           MoneyTalk
         </Typography>
 
-        {/* Cool Tagline/Description */}
         <Typography
           variant="h6"
           component="p"
@@ -141,103 +182,97 @@ const Subscribe = () => {
           Your accessible-for-all personal finance assistant. Connect your bank,
           track your spending, and gain control over your finances.
         </Typography>
-        <Typography
-          variant="subtitle1"
-          component="p"
-          gutterBottom
-          sx={{
-            color: "text.secondary",
-            textAlign: "center",
-            fontStyle: "italic",
-            mb: 4,
-          }}
-        >
-          Receive a daily SMS message about your spending, weekly & monthly
-          insights.
-        </Typography>
 
-        {/* Security Assurance Section */}
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            mb: 4,
-          }}
-          maxWidth="md"
-        >
-          <SecurityIcon color="success" sx={{ mr: 1 }} />
-          <Typography
-            variant="body2"
-            component="p"
-            sx={{
-              color: "text.secondary",
-              textAlign: "center",
-            }}
-          >
-            Your data is secure and encrypted with <strong>Plaid</strong>.
-          </Typography>
-        </Box>
+        {loggedIn ? (
+          <>
+            <Typography
+              variant="subtitle1"
+              component="p"
+              gutterBottom
+              sx={{
+                color: "text.secondary",
+                textAlign: "center",
+                fontStyle: "italic",
+                mb: 4,
+              }}
+            >
+              Select your notification preferences and connect your bank.
+            </Typography>
 
-        {loading ? (
-          <CircularProgress sx={{ mt: 4 }} />
-        ) : linkToken ? (
-          <PlaidLink
-            token={linkToken}
-            onSuccess={handlePlaidSuccess}
-            onExit={(error, metadata) =>
-              console.log("Plaid Exit", error, metadata)
-            }
-          >
+            <FormControl fullWidth sx={{ mb: 4 }}>
+              <InputLabel>Notification Preference</InputLabel>
+              <Select
+                value={notificationPreference}
+                onChange={handlePreferenceChange}
+                label="Notification Preference"
+              >
+                <MenuItem value="daily">Daily SMS</MenuItem>
+                <MenuItem value="weekly">Weekly SMS</MenuItem>
+                <MenuItem value="monthly">Monthly SMS</MenuItem>
+              </Select>
+            </FormControl>
+
+            {loading ? (
+              <CircularProgress sx={{ mt: 4 }} />
+            ) : linkToken ? (
+              <PlaidLink
+                token={linkToken}
+                onSuccess={handlePlaidSuccess}
+                onExit={(error, metadata) =>
+                  console.log("Plaid Exit", error, metadata)
+                }
+              >
+                <Button
+                  variant="contained"
+                  color="success"
+                  sx={{
+                    mt: 3,
+                    backgroundColor: "success.light",
+                    "&:hover": {
+                      backgroundColor: "success.dark",
+                    },
+                  }}
+                >
+                  Connect Your Bank
+                </Button>
+              </PlaidLink>
+            ) : (
+              <Typography variant="body1" color="error" sx={{ mt: 4 }}>
+                Unable to load. Please try again.
+              </Typography>
+            )}
+          </>
+        ) : (
+          <Box component="form" noValidate sx={{ mt: 4 }} maxWidth="md">
+            <TextField
+              variant="outlined"
+              fullWidth
+              label="Phone Number"
+              placeholder="Enter your phone number"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              margin="normal"
+            />
             <Button
               variant="contained"
               color="success"
-              sx={{
-                mt: 3,
-                backgroundColor: "success.light",
-                "&:hover": {
-                  backgroundColor: "success.dark",
-                },
-              }}
+              fullWidth
+              sx={{ mt: 2 }}
+              onClick={handleLogin}
             >
-              Connect Your Bank
+              Login
             </Button>
-          </PlaidLink>
-        ) : (
-          <Typography variant="body1" color="error" sx={{ mt: 4 }}>
-            Unable to load. Please try again.
-          </Typography>
+            <Button
+              variant="outlined"
+              color="error"
+              fullWidth
+              sx={{ mt: 2 }}
+              onClick={handleUnsubscribe}
+            >
+              Unsubscribe
+            </Button>
+          </Box>
         )}
-
-        <Box component="form" noValidate sx={{ mt: 4 }} maxWidth="md">
-          <TextField
-            variant="outlined"
-            fullWidth
-            label="Phone Number"
-            placeholder="Enter your phone number"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            margin="normal"
-          />
-          <Button
-            variant="contained"
-            color="success"
-            fullWidth
-            sx={{ mt: 2 }}
-            onClick={handleSubmit}
-          >
-            Subscribe
-          </Button>
-          <Button
-            variant="outlined"
-            color="error"
-            fullWidth
-            sx={{ mt: 2 }}
-            onClick={handleUnsubscribe}
-          >
-            Unsubscribe
-          </Button>
-        </Box>
       </Box>
     </Container>
   );

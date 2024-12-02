@@ -9,6 +9,7 @@ const moment = require("moment"); //parse, validate, manipulate, and display dat
 const util = require("util");
 require("dotenv").config(); // dotenv loads variables from .env
 const { admin, db } = require("./firebaseAdmin");
+const twilio = require("twilio");
 // Initialize the Express server
 const app = express();
 // const userRoutes = require("./routes/user");
@@ -31,9 +32,83 @@ const configuration = new Configuration({
     },
   },
 });
-const client = new PlaidApi(configuration);
-// helper functions
+const plaidClient = new PlaidApi(configuration);
+const twilioClient = new twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
+// --- Utils ----
+const formatTransactionSummary = (transactions) => {
+  let totalAmount = 0;
+  const summaries = transactions.map((transaction) => {
+    const { amount, date, name, category, merchant_name } = transaction;
+
+    // Add to total amount
+    totalAmount += amount;
+
+    // Format the amount to show currency
+    const formattedAmount = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(amount);
+
+    // Format the date
+    const formattedDate = new Date(date).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    // Determine the source or destination of the transaction
+    const sourceOrDestination = merchant_name || name || "Unknown source";
+
+    // Determine the category of the transaction
+    const formattedCategory =
+      category && category.length > 0 ? category.join(", ") : "Uncategorized";
+
+    // Create the summary string
+    const summary = `
+      Date: ${formattedDate}
+      Amount: ${formattedAmount}
+      Source/Destination: ${sourceOrDestination}
+      Category: ${formattedCategory}
+    `;
+
+    return summary.trim();
+  });
+
+  // Format the total amount
+  const formattedTotalAmount = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(totalAmount);
+
+  // Combine all summaries and the total amount
+  const finalSummary = `
+    Transaction Summaries:
+    ${summaries.join("\n\n")}
+    
+    Total Amount: ${formattedTotalAmount}
+  `;
+  console.log(finalSummary);
+  return finalSummary.trim();
+};
+
+const sendTransactionSummary = (phoneNumber, summary) => {
+  console.log("number:", phoneNumber);
+  console.log("summary:", summary);
+  twilioClient.messages
+    .create({
+      body: summary,
+      to: phoneNumber,
+      from: "+18334451346",
+    })
+    .then((message) => console.log(`Message sent: ${message.sid}`))
+    .catch((error) => console.error("Error sending SMS:", error));
+};
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const prettyPrintResponse = (response) => {
   console.log(util.inspect(response.data, { colors: true, depth: 4 }));
 };
@@ -49,7 +124,7 @@ app.post("/api/create_link_token", async (req, res) => {
       language: "en",
     };
 
-    const createTokenResponse = await client.linkTokenCreate(configs);
+    const createTokenResponse = await plaidClient.linkTokenCreate(configs);
     res.json(createTokenResponse.data); // Send link token back to frontend
   } catch (error) {
     console.error("Error creating Link token:", error);
@@ -62,7 +137,7 @@ app.post("/api/set_access_token", async function (request, response, next) {
   try {
     const PUBLIC_TOKEN = request.body.public_token; // Get the public token from the request
 
-    const tokenResponse = await client.itemPublicTokenExchange({
+    const tokenResponse = await plaidClient.itemPublicTokenExchange({
       public_token: PUBLIC_TOKEN,
     });
 
@@ -105,7 +180,9 @@ app.post("/api/transactions", function (request, response, next) {
           access_token: ACCESS_TOKEN,
           cursor: cursor,
         };
-        const transactionsResponse = await client.transactionsSync(request);
+        const transactionsResponse = await plaidClient.transactionsSync(
+          request
+        );
         const data = transactionsResponse.data;
 
         // If no transactions are available yet, wait and poll the endpoint.
@@ -121,22 +198,22 @@ app.post("/api/transactions", function (request, response, next) {
         removed = removed.concat(data.removed);
         hasMore = data.has_more;
 
-        prettyPrintResponse(transactionsResponse);
+        //prettyPrintResponse(transactionsResponse);
       }
 
-      // // Calculate yesterday's date
-      // const yesterday = moment().subtract(1, "days").format("YYYY-MM-DD");
-
-      // // Filter transactions to only include those from yesterday
-      // const yesterdayTransactions = added.filter(
-      //   (txn) => txn.date === yesterday
-      // );
       const compareTxnsByDateAscending = (a, b) =>
         (a.date > b.date) - (a.date < b.date);
       // Return the 8 most recent transactions
       const recently_added = [...added]
         .sort(compareTxnsByDateAscending)
         .slice(-10);
+
+      // Format the transaction summary
+      const summary = formatTransactionSummary(recently_added);
+
+      // Send the summary via SMS
+      sendTransactionSummary(request.body.phoneNumber, summary);
+
       response.json({ latest_transactions: recently_added });
     })
     .catch(next);
@@ -221,34 +298,6 @@ app.post("/api/updateNotifications", async (req, res) => {
 });
 
 //TODO Balance! maybe investments!
-// Route to unsubscribe a phone number from notifications
-// app.post("/api/unsubscribe", async (req, res) => {
-//   try {
-//     const { phoneNumber } = req.body;
-
-//     if (!phoneNumber) {
-//       return res.status(400).json({ error: "Phone number is required" });
-//     }
-
-//     // Assuming you're using Firestore to store the phone numbers
-//     const userRef = db.collection("users").doc(phoneNumber);
-//     const doc = await userRef.get();
-
-//     if (!doc.exists) {
-//       return res.status(404).json({ error: "Phone number not found" });
-//     }
-
-//     // Remove the phone number from the Firestore collection or mark it as unsubscribed
-//     await userRef.update({
-//       subscribed: false, // Or you could delete the document with `await userRef.delete();`
-//     });
-
-//     res.json({ success: true, message: `Unsubscribed ${phoneNumber}` });
-//   } catch (error) {
-//     console.error("Error unsubscribing:", error);
-//     res.status(500).json({ error: "Failed to unsubscribe" });
-//   }
-// });
 // Start the server
 const PORT = process.env.APP_PORT || 5000;
 app.listen(PORT, () => {

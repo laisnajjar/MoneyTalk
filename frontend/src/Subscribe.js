@@ -59,6 +59,17 @@ const Subscribe = () => {
         }
       );
       console.log("Access Token Response:", response);
+      const checkTransaction = await fetch(
+        "http://localhost:5000/api/transactions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ phoneNumber: "+16302098733" }),
+        }
+      );
+      console.log("Access Token Response:", checkTransaction);
     } catch (error) {
       console.error("Error exchanging public token:", error);
     }

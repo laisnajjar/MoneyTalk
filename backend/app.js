@@ -9,10 +9,21 @@ const moment = require("moment"); //parse, validate, manipulate, and display dat
 const util = require("util");
 require("dotenv").config(); // dotenv loads variables from .env
 const { admin, db } = require("./firebaseAdmin");
-const twilio = require("twilio");
+const apiKey = process.env.NOTIFYRE_TOKEN;
+console.log(apiKey);
+const { NotifyreAPI, RecipientType } = require("notifyre-nodejs-sdk");
+const notifyreAPI = new NotifyreAPI(apiKey);
+const smsService = notifyreAPI.getSmsService();
 // Initialize the Express server
 const app = express();
 // const userRoutes = require("./routes/user");
+const corsOptions = {
+  origin: "https://money-talk-frontend.vercel.app", //production
+  //origin: "http://localhost:3000",
+  methods: ["GET", "POST", "OPTIONS", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"], // Allow the headers used in your request
+  credentials: true,
+};
 app.use(express.json()); // Parse JSON bodies
 // app.use("/api/user", userRoutes);
 // Middleware
@@ -33,10 +44,10 @@ const configuration = new Configuration({
   },
 });
 const plaidClient = new PlaidApi(configuration);
-const twilioClient = new twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+// const twilioClient = new twilio(
+//   process.env.TWILIO_ACCOUNT_SID,
+//   process.env.TWILIO_AUTH_TOKEN
+// );
 // --- Utils ----
 const formatTransactionSummary = (transactions) => {
   let totalAmount = 0;
@@ -90,21 +101,30 @@ const formatTransactionSummary = (transactions) => {
     
     Total Amount: ${formattedTotalAmount}
   `;
-  console.log(finalSummary);
+  // console.log(finalSummary);
   return finalSummary.trim();
 };
 
-const sendTransactionSummary = (phoneNumber, summary) => {
+const sendTransactionSummary = async (phoneNumber, summary) => {
   console.log("number:", phoneNumber);
-  console.log("summary:", summary);
-  twilioClient.messages
-    .create({
-      body: summary,
-      to: phoneNumber,
-      from: "+18334451346",
-    })
-    .then((message) => console.log(`Message sent: ${message.sid}`))
-    .catch((error) => console.error("Error sending SMS:", error));
+  console.log("key:", apiKey);
+  try {
+    const response = await smsService.submitSms({
+      body: "Hello Test!",
+      from: "",
+      recipients: [{ type: RecipientType.SmsNumber, value: "+16302098733" }],
+      scheduledDate: null,
+      addUnsubscribeLink: true,
+      // callbackUrl: "https://mycallback.com/callback",
+      // metadata: {
+      //   Key: "Value",
+      // },
+      // campaignName: "sms-reference",
+    });
+    console.log(response);
+  } catch (error) {
+    console.log(error);
+  }
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

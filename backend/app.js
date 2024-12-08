@@ -18,7 +18,7 @@ const smsService = notifyreAPI.getSmsService();
 const app = express();
 // const userRoutes = require("./routes/user");
 const corsOptions = {
-  origin: "https://money-talk-frontend.vercel.app", //production
+  origin: "https://www.moneytalk.today", //production
   //origin: "http://localhost:3000",
   methods: ["GET", "POST", "OPTIONS", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"], // Allow the headers used in your request
@@ -51,6 +51,7 @@ const plaidClient = new PlaidApi(configuration);
 // --- Utils ----
 const formatTransactionSummary = (transactions) => {
   let totalAmount = 0;
+
   const summaries = transactions.map((transaction) => {
     const { amount, date, name, category, merchant_name } = transaction;
 
@@ -65,25 +66,20 @@ const formatTransactionSummary = (transactions) => {
 
     // Format the date
     const formattedDate = new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
       month: "long",
       day: "numeric",
+      year: "numeric",
     });
 
     // Determine the source or destination of the transaction
-    const sourceOrDestination = merchant_name || name || "Unknown source";
+    const sourceOrDestination = merchant_name || name || "an unknown source";
 
     // Determine the category of the transaction
     const formattedCategory =
-      category && category.length > 0 ? category.join(", ") : "Uncategorized";
+      category && category.length > 0 ? category.join(", ") : "uncategorized";
 
-    // Create the summary string
-    const summary = `
-      Date: ${formattedDate}
-      Amount: ${formattedAmount}
-      Source/Destination: ${sourceOrDestination}
-      Category: ${formattedCategory}
-    `;
+    // Create the summary string in a conversational tone
+    const summary = `On ${formattedDate}, you spent ${formattedAmount} at ${sourceOrDestination}. It was categorized as ${formattedCategory}.`;
 
     return summary.trim();
   });
@@ -94,14 +90,14 @@ const formatTransactionSummary = (transactions) => {
     currency: "USD",
   }).format(totalAmount);
 
-  // Combine all summaries and the total amount
+  // Combine all summaries and the total amount in a conversational tone
   const finalSummary = `
-    Transaction Summaries:
-    ${summaries.join("\n\n")}
+    Here’s your transaction summary for the week:
+    ${summaries.join(" ")}
     
-    Total Amount: ${formattedTotalAmount}
+    In total, you spent ${formattedTotalAmount}. Keep up the good budgeting!
   `;
-  // console.log(finalSummary);
+
   return finalSummary.trim();
 };
 
@@ -115,17 +111,80 @@ const sendTransactionSummary = async (phoneNumber, summary) => {
       recipients: [{ type: RecipientType.SmsNumber, value: "+16302098733" }],
       scheduledDate: null,
       addUnsubscribeLink: true,
-      // callbackUrl: "https://mycallback.com/callback",
-      // metadata: {
-      //   Key: "Value",
-      // },
-      // campaignName: "sms-reference",
     });
     console.log(response);
   } catch (error) {
     console.log(error);
   }
 };
+
+const saveAccessTokenToFirebase = async (phoneNumber, accessToken) => {
+  try {
+    const userDoc = db.collection("plaidTokens").doc(phoneNumber);
+
+    await userDoc.set({
+      accessToken,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log("Access token saved successfully.");
+  } catch (error) {
+    console.error("Error saving access token to Firebase:", error);
+    throw new Error("Failed to save access token.");
+  }
+};
+
+// TODO automate the function to automate the process
+const sendWeeklySummaries = async () => {
+  try {
+    // Fetch all users with access tokens
+    const tokenSnapshots = await db.collection("plaidTokens").get();
+    const users = [];
+
+    tokenSnapshots.forEach((doc) => {
+      users.push({ phoneNumber: doc.id, accessToken: doc.data().accessToken });
+    });
+
+    if (users.length === 0) {
+      console.log("No users found for weekly summaries.");
+      return;
+    }
+
+    for (const user of users) {
+      const { phoneNumber, accessToken } = user;
+
+      // Fetch transactions from Plaid
+      let added = [];
+      let cursor = null;
+      let hasMore = true;
+
+      while (hasMore) {
+        const request = {
+          access_token: accessToken,
+          cursor,
+        };
+
+        const transactionsResponse = await plaidClient.transactionsSync(request);
+        const data = transactionsResponse.data;
+
+        cursor = data.next_cursor;
+        added = added.concat(data.added);
+        hasMore = data.has_more;
+      }
+
+      // Format the transaction summary
+      const summary = formatTransactionSummary(added);
+
+      // Send the summary via SMS
+      await sendTransactionSummary(phoneNumber, summary);
+
+      console.log(`Weekly summary sent to ${phoneNumber}`);
+    }
+  } catch (error) {
+    console.error("Error sending weekly summaries:", error);
+  }
+};
+//sendWeeklySummaries();
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -166,6 +225,8 @@ app.post("/api/set_access_token", async function (request, response, next) {
 
     ACCESS_TOKEN = tokenResponse.data.access_token;
     const ITEM_ID = tokenResponse.data.item_id;
+    
+    await saveAccessTokenToFirebase(request.body.phoneNumber, ACCESS_TOKEN);
 
     // Send response back to the frontend (typically only item_id or similar non-sensitive info)
     response.json({
@@ -238,6 +299,7 @@ app.post("/api/transactions", function (request, response, next) {
     })
     .catch(next);
 });
+
 // Route to login a phone number
 app.post("/api/login", async (req, res) => {
   const { phoneNumber, verificationCode } = req.body;

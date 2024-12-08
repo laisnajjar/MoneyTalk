@@ -27,7 +27,7 @@ const corsOptions = {
 app.use(express.json()); // Parse JSON bodies
 // app.use("/api/user", userRoutes);
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(bodyParser.urlencoded({ extended: false })); // specifies the extended option as false, which means that the values can be only strings or arrays.
 app.use(bodyParser.json());
 // Define ACCESS_TOKEN globally

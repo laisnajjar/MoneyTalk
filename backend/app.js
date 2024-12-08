@@ -18,8 +18,8 @@ const smsService = notifyreAPI.getSmsService();
 const app = express();
 // const userRoutes = require("./routes/user");
 const corsOptions = {
-  origin: "https://www.moneytalk.today", //production
-  //origin: "http://localhost:3000",
+  //origin: "https://www.moneytalk.today", //production
+  origin: "http://localhost:3000",
   methods: ["GET", "POST", "OPTIONS", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"], // Allow the headers used in your request
   credentials: true,
@@ -120,11 +120,12 @@ const sendTransactionSummary = async (phoneNumber, summary) => {
 
 const saveAccessTokenToFirebase = async (phoneNumber, accessToken) => {
   try {
-    const userDoc = db.collection("plaidTokens").doc(phoneNumber);
+    const userDoc = db.collection("users").doc(phoneNumber);
 
-    await userDoc.set({
+    // Update the user's document with the access token
+    await userDoc.update({
       accessToken,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     console.log("Access token saved successfully.");
@@ -164,7 +165,9 @@ const sendWeeklySummaries = async () => {
           cursor,
         };
 
-        const transactionsResponse = await plaidClient.transactionsSync(request);
+        const transactionsResponse = await plaidClient.transactionsSync(
+          request
+        );
         const data = transactionsResponse.data;
 
         cursor = data.next_cursor;
@@ -195,8 +198,12 @@ const prettyPrintResponse = (response) => {
 // See https://plaid.com/docs/#create-link-token
 app.post("/api/create_link_token", async (req, res) => {
   try {
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) {
+      return res.status(400).json({ error: "Phone number is required." });
+    }
     const configs = {
-      user: { client_user_id: "unique_user_id" }, // Replace with unique user ID
+      user: { client_user_id: phoneNumber }, // Replace with unique user ID
       client_name: "Spending Insights Bot",
       products: process.env.PLAID_PRODUCTS.split(","),
       country_codes: process.env.PLAID_COUNTRY_CODES.split(","),
@@ -225,7 +232,7 @@ app.post("/api/set_access_token", async function (request, response, next) {
 
     ACCESS_TOKEN = tokenResponse.data.access_token;
     const ITEM_ID = tokenResponse.data.item_id;
-    
+
     await saveAccessTokenToFirebase(request.body.phoneNumber, ACCESS_TOKEN);
 
     // Send response back to the frontend (typically only item_id or similar non-sensitive info)

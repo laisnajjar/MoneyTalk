@@ -27,26 +27,23 @@ const Subscribe = () => {
   const [notificationPreference, setNotificationPreference] = useState("");
 
   // Fetch the Plaid Link token from the backend when the component mounts
-  useEffect(() => {
-    const fetchLinkToken = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/create_link_token`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-        const data = await response.json();
-        setLinkToken(data.link_token);
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching Plaid link token:", error);
-        setLoading(false);
-      }
-    };
-
-    fetchLinkToken();
-  }, []);
+  const fetchLinkToken = async (phoneNumber) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/create_link_token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phoneNumber }),
+      });
+      const data = await response.json();
+      setLinkToken(data.link_token);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching Plaid link token:", error);
+      setLoading(false);
+    }
+  };
 
   // Handle Plaid success event
   const handlePlaidSuccess = async (publicToken, metadata) => {
@@ -57,7 +54,10 @@ const Subscribe = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ public_token: publicToken }),
+        body: JSON.stringify({
+          public_token: publicToken,
+          phoneNumber: phoneNumber,
+        }),
       });
       console.log("Access Token Response:", response);
       const checkTransaction = await fetch(`${API_BASE_URL}/api/transactions`, {
@@ -65,7 +65,7 @@ const Subscribe = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ phoneNumber: "+16302098733" }),
+        body: JSON.stringify({ phoneNumber: phoneNumber }),
       });
       console.log("Access Token Response:", checkTransaction);
     } catch (error) {
@@ -87,6 +87,7 @@ const Subscribe = () => {
       if (result.message === "User logged in successfully.") {
         setLoggedIn(true);
         alert("Logged in successfully.");
+        fetchLinkToken(phoneNumber);
       } else {
         alert("Login failed. Please try again.");
       }

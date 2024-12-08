@@ -18,8 +18,8 @@ const smsService = notifyreAPI.getSmsService();
 const app = express();
 // const userRoutes = require("./routes/user");
 const corsOptions = {
-  //origin: "https://www.moneytalk.today", //production
-  origin: "http://localhost:3000",
+  origin: "https://www.moneytalk.today", //production
+  //origin: "http://localhost:3000",
   methods: ["GET", "POST", "OPTIONS", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"], // Allow the headers used in your request
   credentials: true,

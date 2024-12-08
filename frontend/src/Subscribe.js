@@ -32,6 +32,9 @@ const Subscribe = () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/create_link_token`, {
           method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
         });
         const data = await response.json();
         setLinkToken(data.link_token);

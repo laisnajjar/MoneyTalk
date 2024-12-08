@@ -15,7 +15,9 @@ import {
 } from "@mui/material";
 import SecurityIcon from "@mui/icons-material/Security";
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+const API_BASE_URL =
+  process.env.REACT_APP_API_BASE_URL || "http://localhost:5000";
+console.log("API_BASE_URL:", API_BASE_URL);
 
 const Subscribe = () => {
   const [phoneNumber, setPhoneNumber] = useState("");

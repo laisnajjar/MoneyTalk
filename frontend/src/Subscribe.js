@@ -15,6 +15,8 @@ import {
 } from "@mui/material";
 import SecurityIcon from "@mui/icons-material/Security";
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+
 const Subscribe = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [linkToken, setLinkToken] = useState(null);
@@ -26,12 +28,9 @@ const Subscribe = () => {
   useEffect(() => {
     const fetchLinkToken = async () => {
       try {
-        const response = await fetch(
-          "http://localhost:5000/api/create_link_token",
-          {
-            method: "POST",
-          }
-        );
+        const response = await fetch(`${API_BASE_URL}/api/create_link_token`, {
+          method: "POST",
+        });
         const data = await response.json();
         setLinkToken(data.link_token);
         setLoading(false);
@@ -48,27 +47,21 @@ const Subscribe = () => {
   const handlePlaidSuccess = async (publicToken, metadata) => {
     try {
       console.log("Public Token:", publicToken);
-      const response = await fetch(
-        "http://localhost:5000/api/set_access_token",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ public_token: publicToken }),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/api/set_access_token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ public_token: publicToken }),
+      });
       console.log("Access Token Response:", response);
-      const checkTransaction = await fetch(
-        "http://localhost:5000/api/transactions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ phoneNumber: "+16302098733" }),
-        }
-      );
+      const checkTransaction = await fetch(`${API_BASE_URL}/api/transactions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phoneNumber: "+16302098733" }),
+      });
       console.log("Access Token Response:", checkTransaction);
     } catch (error) {
       console.error("Error exchanging public token:", error);
@@ -78,7 +71,7 @@ const Subscribe = () => {
   // Handle login
   const handleLogin = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/login", {
+      const response = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -101,7 +94,7 @@ const Subscribe = () => {
   // Handle unsubscribe action
   const handleUnsubscribe = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/unsubscribe", {
+      const response = await fetch(`${API_BASE_URL}/api/unsubscribe`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -129,19 +122,16 @@ const Subscribe = () => {
 
     // Update preference in backend
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/updateNotifications",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            phoneNumber,
-            notificationPreference: newPreference,
-          }),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/api/updateNotifications`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phoneNumber,
+          notificationPreference: newPreference,
+        }),
+      });
       const result = await response.json();
       if (result.message === "Notification preference updated successfully.") {
         alert("Notification preference updated successfully.");
